@@ -71,6 +71,21 @@ pub struct Trace<'a> {
     used_hops: u8,
 }
 
+fn is_public(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(ip) => {
+            !(ip.is_private()
+                || ip.is_loopback()
+                || ip.is_broadcast()
+                || ip.is_multicast()
+                || ip.is_link_local()
+                || ip.is_unspecified()
+                || ip.is_documentation())
+        }
+        IpAddr::V6(ip) => !(ip.is_loopback() || ip.is_multicast() || ip.is_unspecified()),
+    }
+}
+
 impl<'a> Trace<'a> {
     pub fn new(dst_ip: IpAddr, config: &'a TraceConfig) -> Self {
         Self {
@@ -198,8 +213,11 @@ impl<'a> Trace<'a> {
                     _ => false,
                 }) {
                     let is_destination = ip == self.dst_ip;
-                    self.hops_buffer[hop_index] =
-                        Hop::FindingAsn(ip, AsnFinder::lookup(ip).map_err(TraceError::AsnLookup)?);
+                    self.hops_buffer[hop_index] = if is_public(ip) {
+                        Hop::FindingAsn(ip, AsnFinder::lookup(ip).map_err(TraceError::AsnLookup)?)
+                    } else {
+                        Hop::Done { ip, network: None }
+                    };
 
                     if is_destination {
                         self.state = TraceState::ReachedDestination {
