@@ -5,15 +5,18 @@ use std::time::{Duration, Instant};
 use rand::Rng;
 use thiserror::Error;
 
+use crate::peeringdb::{Network, PeeringDbError, PeeringDbManager};
 use crate::traceroute_net::{Id, TracerouteChannel, TracerouteError, TracerouteResult};
 use crate::whois_net::{Asn, AsnFinder};
 
 #[derive(Error, Debug)]
 pub enum TraceError {
-    #[error("traceroute error")]
+    #[error("traceroute error: {0}")]
     Traceroute(#[from] TracerouteError),
-    #[error("asn lookup error")]
+    #[error("asn lookup error: {0}")]
     AsnLookup(#[source] io::Error),
+    #[error("peeringdb search error: {0}")]
+    PeeringDb(#[from] PeeringDbError),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -36,7 +39,10 @@ pub enum Hop {
     Unused,
     Pending(Id),
     FindingAsn(IpAddr, AsnFinder),
-    Done(IpAddr, Option<Asn>),
+    Done {
+        ip: IpAddr,
+        network: Option<(Asn, Option<Network>)>,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -79,17 +85,18 @@ impl<'a> Trace<'a> {
     pub fn poll(
         &mut self,
         traceroute_channel: &mut TracerouteChannel,
+        peeringdb: &PeeringDbManager,
     ) -> Result<Option<TerminationReason>, TraceError> {
         match self.state {
             TraceState::NotStarted => {
                 self.start_next_hop(0, traceroute_channel)?;
-                self.poll_inner(traceroute_channel)?;
+                self.poll_inner(traceroute_channel, peeringdb)?;
             }
             TraceState::OnHop { when, index } => {
                 if when.elapsed() > self.config.wait_time_per_hop {
                     self.start_next_hop(index + 1, traceroute_channel)?;
                 }
-                self.poll_inner(traceroute_channel)?;
+                self.poll_inner(traceroute_channel, peeringdb)?;
             }
             TraceState::SentAllRequests {
                 when,
@@ -101,7 +108,7 @@ impl<'a> Trace<'a> {
                     *last_retry = Instant::now();
                     self.retry_ping(traceroute_channel)?;
                 } else {
-                    self.poll_inner(traceroute_channel)?;
+                    self.poll_inner(traceroute_channel, peeringdb)?;
                 }
             }
             TraceState::ReachedDestination { when, last_retry } => {
@@ -120,7 +127,7 @@ impl<'a> Trace<'a> {
                 } else if self.all_hops_done() {
                     self.state = TraceState::Terminated(TerminationReason::Done);
                 } else {
-                    self.poll_inner(traceroute_channel)?;
+                    self.poll_inner(traceroute_channel, peeringdb)?;
                 }
             }
             TraceState::Terminated(reason) => return Ok(Some(reason)),
@@ -139,7 +146,9 @@ impl<'a> Trace<'a> {
     }
 
     pub fn all_hops_done(&self) -> bool {
-        self.hops().iter().all(|hop| matches!(hop, Hop::Done(_, _)))
+        self.hops()
+            .iter()
+            .all(|hop| matches!(hop, Hop::Done { .. }))
     }
 
     fn retry_ping(&self, traceroute_channel: &mut TracerouteChannel) -> Result<(), TraceError> {
@@ -176,7 +185,11 @@ impl<'a> Trace<'a> {
         Ok(())
     }
 
-    fn poll_inner(&mut self, traceroute_channel: &mut TracerouteChannel) -> Result<(), TraceError> {
+    fn poll_inner(
+        &mut self,
+        traceroute_channel: &mut TracerouteChannel,
+        peeringdb: &PeeringDbManager,
+    ) -> Result<(), TraceError> {
         match traceroute_channel.poll()? {
             Some(TracerouteResult::IcmpReply(ip, id))
             | Some(TracerouteResult::IcmpTimeExceeded(ip, id)) => {
@@ -197,7 +210,7 @@ impl<'a> Trace<'a> {
                         if index == hop_index as u8 {
                             // If this was a response to our current hop, we can move on to the next.
                             self.start_next_hop(index + 1, traceroute_channel)?;
-                            self.poll_inner(traceroute_channel)?;
+                            self.poll_inner(traceroute_channel, peeringdb)?;
                         }
                     }
                 }
@@ -213,8 +226,18 @@ impl<'a> Trace<'a> {
         for hop in self.hops_mut() {
             if let Hop::FindingAsn(ip, asn) = hop {
                 match asn.poll().map_err(TraceError::AsnLookup)? {
-                    crate::whois_net::AsnResult::Found(asn) => *hop = Hop::Done(*ip, Some(asn)),
-                    crate::whois_net::AsnResult::NotFound => *hop = Hop::Done(*ip, None),
+                    crate::whois_net::AsnResult::Found(asn) => {
+                        *hop = Hop::Done {
+                            ip: *ip,
+                            network: Some((asn, peeringdb.network_by_asn(asn)?)),
+                        }
+                    }
+                    crate::whois_net::AsnResult::NotFound => {
+                        *hop = Hop::Done {
+                            ip: *ip,
+                            network: None,
+                        }
+                    }
                     crate::whois_net::AsnResult::Pending => {}
                 }
             }
