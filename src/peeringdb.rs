@@ -1,3 +1,12 @@
+//! PeeringDB says (https://docs.peeringdb.com/howto/peeringdb-py/):
+//!
+//! > The SQL data structure might change without notice. Please do not build tools that make
+//! > SQL queries. We suggest using our library to make API calls on your local cache. We
+//! > maintain the library and commit to maintaining the API functionality, even if the
+//! > underlying database structure changes.
+//!
+//! So, I built a tool that makes SQL queries.
+
 use std::{convert::Infallible, path::Path, str::FromStr};
 
 use rusqlite::{Connection, OpenFlags, OptionalExtension, Row};
