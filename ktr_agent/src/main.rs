@@ -17,8 +17,8 @@ static TRACE_CONFIG: TraceConfig = TraceConfig {
     max_hops: 64,
     wait_time_per_hop: Duration::from_millis(150),
     retry_frequency: Duration::from_secs(1),
-    destination_timeout: Duration::from_secs(3),
-    completion_timeout: Duration::from_secs(4),
+    destination_timeout: Duration::from_millis(500),
+    completion_timeout: Duration::from_secs(3),
     asn_cache_size: 8192,
 };
 
@@ -38,6 +38,7 @@ enum Command {
 #[derive(Debug, Serialize)]
 #[serde(tag = "kind")]
 enum Output<'a> {
+    #[serde(rename_all = "camelCase")]
     StartedTrace {
         command_id: CommandId,
         trace_id: TraceId,

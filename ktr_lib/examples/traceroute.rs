@@ -2,7 +2,7 @@ use std::net::ToSocketAddrs;
 use std::time::Duration;
 
 use ktr_lib::peeringdb::PeeringDbManager;
-use ktr_lib::trace::{DidUpdate, Hop, Trace, TraceConfig};
+use ktr_lib::trace::{DidUpdate, Hop, NetworkInfo, Trace, TraceConfig};
 use ktr_lib::traceroute_net::{interface_from_name, TracerouteChannel};
 
 fn main() {
@@ -40,14 +40,17 @@ fn main() {
             println!("tracing {} ({})...", host_or_ip, ip);
             for (i, hop) in trace.hops().iter().enumerate() {
                 let hop_text = match hop {
-                    Hop::Pending(_) => "loading...".to_string(),
-                    Hop::FindingAsn(ip, _) => format!("{} (loading asn...)", ip),
-                    Hop::Done { ip, network } => format!(
+                    Hop::Pending { .. } => "loading...".to_string(),
+                    Hop::FindingAsn { ip, .. } => format!("{} (loading asn...)", ip),
+                    Hop::Done { ip, network_info } => format!(
                         "{} ({})",
                         ip,
-                        match network {
-                            Some((asn, Some(network))) => format!("{:?}, {}", asn, network.name),
-                            Some((asn, None)) => format!("{:?}", asn),
+                        match network_info {
+                            Some(NetworkInfo {
+                                asn,
+                                network: Some(network),
+                            }) => format!("{:?}, {}", asn, network.name),
+                            Some(NetworkInfo { asn, network: None }) => format!("{:?}", asn),
                             None => "AS???".to_string(),
                         }
                     ),
