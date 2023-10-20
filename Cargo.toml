@@ -1,10 +1,3 @@
-[package]
-name = "ktr"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-pnet = "0.34.0"
-rand = "0.8.5"
-rusqlite = { version = "0.29.0", features = ["bundled"] }
-thiserror = "1.0.49"
+[workspace]
+members = ["ktr_lib", "ktr_agent"]
+resolver = "2"

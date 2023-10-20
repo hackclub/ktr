@@ -1,4 +1,4 @@
-use ktr::{peeringdb::PeeringDbManager, whois_net::Asn};
+use ktr_lib::{peeringdb::PeeringDbManager, whois_net::Asn};
 
 fn main() {
     let usage = "usage: peeringdb <db_path> <asn>";

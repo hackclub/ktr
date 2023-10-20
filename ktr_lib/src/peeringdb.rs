@@ -16,11 +16,13 @@ use crate::whois_net::Asn;
 
 #[derive(Error, Debug)]
 pub enum PeeringDbError {
-    #[error("sqlite error: {0}")]
+    #[error("SQLite error")]
     SqliteError(#[from] rusqlite::Error),
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Organization {
     pub id: usize,
     pub name: String,
@@ -28,6 +30,7 @@ pub struct Organization {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[non_exhaustive]
 pub enum GeographicScope {
     /// Regional
@@ -72,6 +75,7 @@ impl FromStr for GeographicScope {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[non_exhaustive]
 pub enum NetworkType {
     /// NSP (network service provider)
@@ -119,6 +123,8 @@ impl FromStr for NetworkType {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct NetworkProtocols {
     pub unicast_ipv4: bool,
     pub multicast: bool,
@@ -127,6 +133,8 @@ pub struct NetworkProtocols {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Network {
     pub id: usize,
     pub name: String,

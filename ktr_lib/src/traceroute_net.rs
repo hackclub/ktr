@@ -12,27 +12,29 @@ use pnet::transport::TransportChannelType::Layer3;
 use pnet::transport::{transport_channel, TransportSender};
 use pnet::util::checksum;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Id(pub u16);
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[repr(transparent)]
+pub struct PacketId(pub u16);
 
 #[derive(Error, Debug)]
 pub enum TracerouteError {
-    #[error("error constructing packet")]
+    #[error("Error constructing packet")]
     PacketConstruction,
-    #[error("io error in rx channel: {0}")]
+    #[error("IO error in RX channel")]
     RxChannelIo(#[source] io::Error),
-    #[error("io error in ipv4 channel: {0}")]
+    #[error("IO error in IPv4 channel")]
     Ipv4ChannelIo(#[source] io::Error),
-    #[error("io error in ipv6 channel: {0}")]
+    #[error("IO error in IPv6 channel")]
     Ipv6ChannelIo(#[source] io::Error),
-    #[error("unknown and unexpected error")]
+    #[error("Unknown and unexpected error")]
     Unknown,
 }
 
 #[derive(Debug)]
 pub enum TracerouteResult {
-    IcmpReply(IpAddr, Id),
-    IcmpTimeExceeded(IpAddr, Id),
+    IcmpReply(IpAddr, PacketId),
+    IcmpTimeExceeded(IpAddr, PacketId),
     IcmpDestinationUnreachable(IpAddr),
 }
 
@@ -75,7 +77,12 @@ impl TracerouteChannel {
         })
     }
 
-    pub fn send_echo(&mut self, dst_ip: IpAddr, ttl: u8, id: Id) -> Result<(), TracerouteError> {
+    pub fn send_echo(
+        &mut self,
+        dst_ip: IpAddr,
+        ttl: u8,
+        id: PacketId,
+    ) -> Result<(), TracerouteError> {
         self.sequence_number = self.sequence_number.wrapping_add(1);
         match dst_ip {
             IpAddr::V4(dst_ipv4) => {
@@ -177,7 +184,7 @@ impl TracerouteChannel {
                                         icmp::echo_reply::EchoReplyPacket::new(packet.packet())?;
                                     Some(TracerouteResult::IcmpReply(
                                         IpAddr::V4(source_ip),
-                                        Id(packet.get_identifier()),
+                                        PacketId(packet.get_identifier()),
                                     ))
                                 }
                                 icmp::IcmpTypes::TimeExceeded => {
@@ -188,7 +195,7 @@ impl TracerouteChannel {
 
                                     Some(TracerouteResult::IcmpTimeExceeded(
                                         IpAddr::V4(source_ip),
-                                        Id(packet.get_identification()),
+                                        PacketId(packet.get_identification()),
                                     ))
                                 }
                                 icmp::IcmpTypes::DestinationUnreachable => {
@@ -232,4 +239,11 @@ impl TracerouteChannel {
             Err(error) => Err(TracerouteError::RxChannelIo(error)),
         }
     }
+}
+
+pub fn interface_from_name(name: &str) -> Option<NetworkInterface> {
+    let interfaces = pnet::datalink::interfaces();
+    interfaces
+        .into_iter()
+        .find(|iface: &NetworkInterface| iface.name == name)
 }

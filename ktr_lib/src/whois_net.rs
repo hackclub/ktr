@@ -5,7 +5,9 @@ use std::time::Duration;
 
 const WHOIS_PORT: u16 = 43;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[repr(transparent)]
 pub struct Asn(pub u32);
 
 impl Debug for Asn {
@@ -15,6 +17,8 @@ impl Debug for Asn {
 }
 
 #[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(tag = "kind", content = "asn"))] // Change if you add another field to the enum!
 pub enum AsnResult {
     Pending,
     Found(Asn),

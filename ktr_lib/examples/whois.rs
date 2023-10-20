@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use ktr::whois_net::{AsnFinder, AsnResult};
+use ktr_lib::whois_net::{AsnFinder, AsnResult};
 
 fn main() {
     let usage = "usage: whois <ip>";
