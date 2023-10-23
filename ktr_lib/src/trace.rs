@@ -12,13 +12,13 @@ use crate::whois_net::{Asn, AsnFinder, AsnResult};
 
 #[derive(Error, Debug)]
 pub enum TraceError {
-    #[error("Traceroute error")]
+    #[error("Traceroute error: {0}")]
     Traceroute(#[from] TracerouteError),
-    #[error("ASN lookup error")]
+    #[error("ASN lookup error: {0}")]
     AsnLookup(#[source] io::Error),
-    #[error("Reverse DNS lookup error")]
+    #[error("Reverse DNS lookup error: {0}")]
     Rdns(#[source] io::Error),
-    #[error("PeeringDB search error")]
+    #[error("PeeringDB search error: {0}")]
     PeeringDb(#[from] PeeringDbError),
 }
 
@@ -161,7 +161,8 @@ fn do_rdns(ip: &IpAddr) -> Result<Option<String>, TraceError> {
     match dns_lookup::lookup_addr(ip) {
         Ok(hostname) => Ok(Some(hostname)),
         Err(error) => {
-            if error.kind() == io::ErrorKind::NotFound {
+            if error.kind() == io::ErrorKind::Other {
+                // Our "not found" errors tend to be Other, which is unfortunate, but false Nones are alright.
                 Ok(None)
             } else {
                 Err(TraceError::Rdns(error))

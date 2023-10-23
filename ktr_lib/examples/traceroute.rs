@@ -43,10 +43,13 @@ fn main() {
                     Hop::Pending { .. } => "loading...".to_string(),
                     Hop::FindingAsn { ip, .. } => format!("{} (loading asn...)", ip),
                     Hop::Done {
-                        ip, network_info, ..
+                        ip,
+                        network_info,
+                        hostname,
+                        ..
                     } => format!(
                         "{} ({})",
-                        ip,
+                        hostname.as_ref().unwrap_or(&ip.to_string()),
                         match network_info {
                             Some(NetworkInfo {
                                 asn,

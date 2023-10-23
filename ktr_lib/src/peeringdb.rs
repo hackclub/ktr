@@ -16,7 +16,7 @@ use crate::whois_net::Asn;
 
 #[derive(Error, Debug)]
 pub enum PeeringDbError {
-    #[error("SQLite error")]
+    #[error("SQLite error: {0}")]
     SqliteError(#[from] rusqlite::Error),
 }
 

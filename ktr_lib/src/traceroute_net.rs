@@ -21,11 +21,11 @@ pub struct PacketId(pub u16);
 pub enum TracerouteError {
     #[error("Error constructing packet")]
     PacketConstruction,
-    #[error("IO error in RX channel")]
+    #[error("IO error in RX channel: {0}")]
     RxChannelIo(#[source] io::Error),
-    #[error("IO error in IPv4 channel")]
+    #[error("IO error in IPv4 channel: {0}")]
     Ipv4ChannelIo(#[source] io::Error),
-    #[error("IO error in IPv6 channel")]
+    #[error("IO error in IPv6 channel: {0}")]
     Ipv6ChannelIo(#[source] io::Error),
     #[error("Unknown and unexpected error")]
     Unknown,
