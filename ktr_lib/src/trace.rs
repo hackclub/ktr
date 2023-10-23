@@ -16,6 +16,8 @@ pub enum TraceError {
     Traceroute(#[from] TracerouteError),
     #[error("ASN lookup error")]
     AsnLookup(#[source] io::Error),
+    #[error("Reverse DNS lookup error")]
+    Rdns(#[source] io::Error),
     #[error("PeeringDB search error")]
     PeeringDb(#[from] PeeringDbError),
 }
@@ -35,6 +37,7 @@ impl serde::Serialize for TraceError {
                 TraceError::Traceroute(_) => "Traceroute",
                 TraceError::AsnLookup(_) => "AsnLookup",
                 TraceError::PeeringDb(_) => "PeeringDb",
+                TraceError::Rdns(_) => "Rdns",
             },
         )?;
         state.serialize_field("message", &self.to_string())?;
@@ -74,11 +77,13 @@ pub enum Hop {
     Unused,
 
     #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[non_exhaustive]
     Pending {
         id: PacketId,
     },
 
     #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[non_exhaustive]
     FindingAsn {
         ip: IpAddr,
         #[cfg_attr(feature = "serde", serde(skip))]
@@ -86,8 +91,10 @@ pub enum Hop {
     },
 
     #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[non_exhaustive]
     Done {
         ip: IpAddr,
+        hostname: Option<String>,
         network_info: Option<NetworkInfo>,
     },
 }
@@ -148,6 +155,19 @@ fn get_network_info(asn: Asn, peeringdb: &PeeringDbManager) -> Result<NetworkInf
             .network_by_asn(asn)
             .map_err(TraceError::PeeringDb)?,
     })
+}
+
+fn do_rdns(ip: &IpAddr) -> Result<Option<String>, TraceError> {
+    match dns_lookup::lookup_addr(ip) {
+        Ok(hostname) => Ok(Some(hostname)),
+        Err(error) => {
+            if error.kind() == io::ErrorKind::NotFound {
+                Ok(None)
+            } else {
+                Err(TraceError::Rdns(error))
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -316,6 +336,7 @@ impl<'a> Trace<'a> {
                         if let Some(&maybe_asn) = self.asn_cache.get(&ip) {
                             Hop::Done {
                                 ip,
+                                hostname: do_rdns(&ip)?,
                                 network_info: maybe_asn
                                     .map(|asn| get_network_info(asn, peeringdb))
                                     .transpose()?,
@@ -329,6 +350,7 @@ impl<'a> Trace<'a> {
                     } else {
                         Hop::Done {
                             ip,
+                            hostname: do_rdns(&ip)?,
                             network_info: None,
                         }
                     };
@@ -372,6 +394,7 @@ impl<'a> Trace<'a> {
                         self.asn_cache.insert(*ip, Some(asn));
                         *hop = Hop::Done {
                             ip: *ip,
+                            hostname: do_rdns(ip)?,
                             network_info: Some(get_network_info(asn, peeringdb)?),
                         };
                         DidUpdate::Yes
@@ -380,6 +403,7 @@ impl<'a> Trace<'a> {
                         self.asn_cache.insert(*ip, None);
                         *hop = Hop::Done {
                             ip: *ip,
+                            hostname: do_rdns(ip)?,
                             network_info: None,
                         };
                         DidUpdate::Yes

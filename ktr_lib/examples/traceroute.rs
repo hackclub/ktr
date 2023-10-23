@@ -42,7 +42,9 @@ fn main() {
                 let hop_text = match hop {
                     Hop::Pending { .. } => "loading...".to_string(),
                     Hop::FindingAsn { ip, .. } => format!("{} (loading asn...)", ip),
-                    Hop::Done { ip, network_info } => format!(
+                    Hop::Done {
+                        ip, network_info, ..
+                    } => format!(
                         "{} ({})",
                         ip,
                         match network_info {
