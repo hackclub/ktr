@@ -306,6 +306,7 @@ checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 [[package]]
 name = "pnet"
 version = "0.34.0"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=5d5c347#5d5c347f5bce1ae0063aca7528f0ab3897bbaab8"
 dependencies = [
  "ipnetwork",
  "pnet_base",
@@ -318,6 +319,7 @@ dependencies = [
 [[package]]
 name = "pnet_base"
 version = "0.34.0"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=5d5c347#5d5c347f5bce1ae0063aca7528f0ab3897bbaab8"
 dependencies = [
  "no-std-net",
 ]
@@ -325,6 +327,7 @@ dependencies = [
 [[package]]
 name = "pnet_datalink"
 version = "0.34.0"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=5d5c347#5d5c347f5bce1ae0063aca7528f0ab3897bbaab8"
 dependencies = [
  "ipnetwork",
  "libc",
@@ -336,6 +339,7 @@ dependencies = [
 [[package]]
 name = "pnet_macros"
 version = "0.34.0"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=5d5c347#5d5c347f5bce1ae0063aca7528f0ab3897bbaab8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -346,6 +350,7 @@ dependencies = [
 [[package]]
 name = "pnet_macros_support"
 version = "0.34.0"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=5d5c347#5d5c347f5bce1ae0063aca7528f0ab3897bbaab8"
 dependencies = [
  "pnet_base",
 ]
@@ -353,6 +358,7 @@ dependencies = [
 [[package]]
 name = "pnet_packet"
 version = "0.34.0"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=5d5c347#5d5c347f5bce1ae0063aca7528f0ab3897bbaab8"
 dependencies = [
  "glob",
  "pnet_base",
@@ -363,6 +369,7 @@ dependencies = [
 [[package]]
 name = "pnet_sys"
 version = "0.34.0"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=5d5c347#5d5c347f5bce1ae0063aca7528f0ab3897bbaab8"
 dependencies = [
  "libc",
  "winapi",
@@ -371,6 +378,7 @@ dependencies = [
 [[package]]
 name = "pnet_transport"
 version = "0.34.0"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=5d5c347#5d5c347f5bce1ae0063aca7528f0ab3897bbaab8"
 dependencies = [
  "libc",
  "pnet_base",
