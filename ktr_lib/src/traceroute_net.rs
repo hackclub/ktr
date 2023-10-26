@@ -9,7 +9,7 @@ use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
 use pnet::packet::ip::IpNextHeaderProtocols;
 use pnet::packet::{icmp, icmpv6, ipv4, ipv6, Packet};
 use pnet::transport::TransportChannelType::Layer3;
-use pnet::transport::{transport_channel, TransportSender};
+use pnet::transport::{transport_channel, TransportProtocol, TransportSender};
 use pnet::util::checksum;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -27,6 +27,8 @@ pub enum TracerouteError {
     Ipv4ChannelIo(#[source] io::Error),
     #[error("IO error in IPv6 channel: {0}")]
     Ipv6ChannelIo(#[source] io::Error),
+    #[error("Tried to use IPv6 but enable_ipv6 was set to false")]
+    Ipv6Disabled,
     #[error("Unknown and unexpected error")]
     Unknown,
 }
@@ -41,13 +43,16 @@ pub enum TracerouteResult {
 pub struct TracerouteChannel {
     rx: Box<dyn DataLinkReceiver>,
     v4_tx: TransportSender,
-    v6_tx: TransportSender,
+    v6_tx: Option<TransportSender>,
     /// Sequence number that increments per request. Not used for matching.
     sequence_number: u16,
 }
 
 impl TracerouteChannel {
-    pub fn from_interface(interface: NetworkInterface) -> Result<Self, TracerouteError> {
+    pub fn from_interface(
+        interface: NetworkInterface,
+        enable_ipv6: bool,
+    ) -> Result<Self, TracerouteError> {
         let (_, rx) = match channel(
             &interface,
             Config {
@@ -60,13 +65,24 @@ impl TracerouteChannel {
             Err(e) => return Err(TracerouteError::RxChannelIo(e)),
         };
 
-        let (v4_tx, _) = match transport_channel(512, Layer3(IpNextHeaderProtocols::Icmp)) {
+        let (v4_tx, _) = match transport_channel(
+            512,
+            Layer3(TransportProtocol::Ipv4(IpNextHeaderProtocols::Icmp)),
+        ) {
             Ok((tx, rx)) => (tx, rx),
             Err(e) => return Err(TracerouteError::Ipv4ChannelIo(e)),
         };
-        let (v6_tx, _) = match transport_channel(512, Layer3(IpNextHeaderProtocols::Icmpv6)) {
-            Ok((tx, rx)) => (tx, rx),
-            Err(e) => return Err(TracerouteError::RxChannelIo(e)),
+        let v6_tx = if enable_ipv6 {
+            let (v6_tx, _) = match transport_channel(
+                512,
+                Layer3(TransportProtocol::Ipv6(IpNextHeaderProtocols::Icmpv6)),
+            ) {
+                Ok((tx, rx)) => (tx, rx),
+                Err(e) => return Err(TracerouteError::Ipv6ChannelIo(e)),
+            };
+            Some(v6_tx)
+        } else {
+            None
         };
 
         Ok(Self {
@@ -159,6 +175,8 @@ impl TracerouteChannel {
                 // Send!
                 ipv6_packet.set_payload(icmpv6_packet.packet());
                 self.v6_tx
+                    .as_mut()
+                    .ok_or(TracerouteError::Ipv6Disabled)?
                     .send_to(ipv6_packet, dst_ip)
                     .map_err(TracerouteError::Ipv6ChannelIo)?;
             }
@@ -209,29 +227,42 @@ impl TracerouteChannel {
                             None
                         }
                     }
-                    // EtherTypes::Ipv6 => {
-                    //     let packet = ipv6::Ipv6Packet::new(packet.payload()).unwrap();
-                    //     let source_ip = packet.get_source();
-                    //     if packet.get_next_header() == IpNextHeaderProtocols::Icmpv6 {
-                    //         let packet = icmpv6::Icmpv6Packet::new(packet.payload()).unwrap();
-                    //         match packet.get_icmpv6_type() {
-                    //             icmpv6::Icmpv6Types::EchoReply => {
-                    //                 Ok(Some(TracerouteResponse::IcmpReply(IpAddr::V6(source_ip))))
-                    //             }
-                    //             icmpv6::Icmpv6Types::TimeExceeded => Ok(Some(
-                    //                 TracerouteResponse::IcmpTimeExceeded(IpAddr::V6(source_ip)),
-                    //             )),
-                    //             icmpv6::Icmpv6Types::DestinationUnreachable => {
-                    //                 Ok(Some(TracerouteResponse::IcmpDestinationUnreachable(
-                    //                     IpAddr::V6(source_ip),
-                    //                 )))
-                    //             }
-                    //             _ => Ok(None),
-                    //         }
-                    //     } else {
-                    //         Ok(None)
-                    //     }
-                    // }
+                    EtherTypes::Ipv6 => {
+                        let packet = ipv6::Ipv6Packet::new(packet.payload()).unwrap();
+                        let source_ip = packet.get_source();
+                        if packet.get_next_header() == IpNextHeaderProtocols::Icmpv6 {
+                            let packet = icmpv6::Icmpv6Packet::new(packet.payload())?;
+                            match packet.get_icmpv6_type() {
+                                icmpv6::Icmpv6Types::EchoReply => {
+                                    let packet =
+                                        icmp::echo_reply::EchoReplyPacket::new(packet.packet())?;
+                                    Some(TracerouteResult::IcmpReply(
+                                        IpAddr::V6(source_ip),
+                                        PacketId(packet.get_identifier()),
+                                    ))
+                                }
+                                icmpv6::Icmpv6Types::TimeExceeded => {
+                                    let packet = icmp::time_exceeded::TimeExceededPacket::new(
+                                        packet.packet(),
+                                    )?;
+                                    let packet = ipv4::Ipv4Packet::new(packet.payload())?;
+
+                                    Some(TracerouteResult::IcmpTimeExceeded(
+                                        IpAddr::V6(source_ip),
+                                        PacketId(packet.get_identification()),
+                                    ))
+                                }
+                                icmpv6::Icmpv6Types::DestinationUnreachable => {
+                                    Some(TracerouteResult::IcmpDestinationUnreachable(IpAddr::V6(
+                                        source_ip,
+                                    )))
+                                }
+                                _ => None,
+                            }
+                        } else {
+                            None
+                        }
+                    }
                     _ => None,
                 }
             })()),

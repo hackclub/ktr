@@ -6,10 +6,11 @@ use ktr_lib::trace::{DidUpdate, Hop, NetworkInfo, Trace, TraceConfig};
 use ktr_lib::traceroute_net::{interface_from_name, TracerouteChannel};
 
 fn main() {
-    let usage = "usage: traceroute <interface> <peeringdb_path> <host_or_ip>";
+    let usage = "usage: traceroute <interface> <peeringdb_path> <enable_ipv6> <host_or_ip>";
     let interface_name = std::env::args().nth(1).expect(usage);
     let peeringdb_path = std::env::args().nth(2).expect(usage);
-    let host_or_ip = std::env::args().nth(3).expect(usage);
+    let enable_ipv6 = std::env::args().nth(3).expect(usage) == "true";
+    let host_or_ip = std::env::args().nth(4).expect(usage);
     let ip = (host_or_ip.clone(), 80)
         .to_socket_addrs()
         .expect("failed to dns resolve host")
@@ -18,7 +19,7 @@ fn main() {
         .ip();
 
     let interface = interface_from_name(&interface_name).expect("interface not found");
-    let mut traceroute_channel = TracerouteChannel::from_interface(interface).unwrap();
+    let mut traceroute_channel = TracerouteChannel::from_interface(interface, enable_ipv6).unwrap();
     let peeringdb = PeeringDbManager::connect(peeringdb_path).unwrap();
 
     let config = TraceConfig {

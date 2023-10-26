@@ -95,6 +95,9 @@ struct Args {
     /// Path to the local PeeringDB SQLite database
     #[arg(short = 'd', long)]
     peeringdb_path: PathBuf,
+    /// Disable IPv6 support (IPv6 addresses will be soft, non-crashing errors)
+    #[arg(long, default_value = "false")]
+    disable_ipv6: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -102,7 +105,7 @@ fn main() -> anyhow::Result<()> {
 
     let interface = interface_from_name(&args.interface_name)
         .with_context(|| format!("Interface {} does not exist", args.interface_name))?;
-    let traceroute_channel = TracerouteChannel::from_interface(interface)
+    let traceroute_channel = TracerouteChannel::from_interface(interface, args.disable_ipv6)
         .context("Failed to initialize traceroute networking (do you need to use sudo?)")?;
     let peeringdb = PeeringDbManager::connect(args.peeringdb_path)
         .context("Failed to open PeeringDB database")?;
