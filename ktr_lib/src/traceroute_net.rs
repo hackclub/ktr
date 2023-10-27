@@ -235,21 +235,21 @@ impl TracerouteChannel {
                             match packet.get_icmpv6_type() {
                                 icmpv6::Icmpv6Types::EchoReply => {
                                     let packet =
-                                        icmp::echo_reply::EchoReplyPacket::new(packet.packet())?;
+                                        icmpv6::echo_reply::EchoReplyPacket::new(packet.packet())?;
                                     Some(TracerouteResult::IcmpReply(
                                         IpAddr::V6(source_ip),
                                         PacketId(packet.get_identifier()),
                                     ))
                                 }
                                 icmpv6::Icmpv6Types::TimeExceeded => {
-                                    let packet = icmp::time_exceeded::TimeExceededPacket::new(
+                                    let packet = icmpv6::time_exceeded::TimeExceededPacket::new(
                                         packet.packet(),
                                     )?;
-                                    let packet = ipv4::Ipv4Packet::new(packet.payload())?;
+                                    let packet = ipv6::Ipv6Packet::new(packet.payload())?;
 
                                     Some(TracerouteResult::IcmpTimeExceeded(
                                         IpAddr::V6(source_ip),
-                                        PacketId(packet.get_identification()),
+                                        PacketId(packet.get_flow_label() as u16),
                                     ))
                                 }
                                 icmpv6::Icmpv6Types::DestinationUnreachable => {

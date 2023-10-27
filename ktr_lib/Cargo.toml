@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-pnet = { git = "https://github.com/kognise/libpnet-ipv6-layer3.git", rev = "5d5c347" }
+pnet = { git = "https://github.com/kognise/libpnet-ipv6-layer3.git", rev = "37fa150" }
 rand = "0.8"
 rusqlite = { version = "0.29", features = ["bundled"] }
 thiserror = "1.0"
