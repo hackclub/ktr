@@ -306,7 +306,7 @@ checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 [[package]]
 name = "pnet"
 version = "0.34.0"
-source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=37fa150#37fa150240dd711202b3f5183c22640610ec82a3"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=25d6715#25d67151b17dfd361d68da3b3bef722c3872c11c"
 dependencies = [
  "ipnetwork",
  "pnet_base",
@@ -319,7 +319,7 @@ dependencies = [
 [[package]]
 name = "pnet_base"
 version = "0.34.0"
-source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=37fa150#37fa150240dd711202b3f5183c22640610ec82a3"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=25d6715#25d67151b17dfd361d68da3b3bef722c3872c11c"
 dependencies = [
  "no-std-net",
 ]
@@ -327,7 +327,7 @@ dependencies = [
 [[package]]
 name = "pnet_datalink"
 version = "0.34.0"
-source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=37fa150#37fa150240dd711202b3f5183c22640610ec82a3"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=25d6715#25d67151b17dfd361d68da3b3bef722c3872c11c"
 dependencies = [
  "ipnetwork",
  "libc",
@@ -339,7 +339,7 @@ dependencies = [
 [[package]]
 name = "pnet_macros"
 version = "0.34.0"
-source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=37fa150#37fa150240dd711202b3f5183c22640610ec82a3"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=25d6715#25d67151b17dfd361d68da3b3bef722c3872c11c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -350,7 +350,7 @@ dependencies = [
 [[package]]
 name = "pnet_macros_support"
 version = "0.34.0"
-source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=37fa150#37fa150240dd711202b3f5183c22640610ec82a3"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=25d6715#25d67151b17dfd361d68da3b3bef722c3872c11c"
 dependencies = [
  "pnet_base",
 ]
@@ -358,7 +358,7 @@ dependencies = [
 [[package]]
 name = "pnet_packet"
 version = "0.34.0"
-source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=37fa150#37fa150240dd711202b3f5183c22640610ec82a3"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=25d6715#25d67151b17dfd361d68da3b3bef722c3872c11c"
 dependencies = [
  "glob",
  "pnet_base",
@@ -369,7 +369,7 @@ dependencies = [
 [[package]]
 name = "pnet_sys"
 version = "0.34.0"
-source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=37fa150#37fa150240dd711202b3f5183c22640610ec82a3"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=25d6715#25d67151b17dfd361d68da3b3bef722c3872c11c"
 dependencies = [
  "libc",
  "winapi",
@@ -378,7 +378,7 @@ dependencies = [
 [[package]]
 name = "pnet_transport"
 version = "0.34.0"
-source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=37fa150#37fa150240dd711202b3f5183c22640610ec82a3"
+source = "git+https://github.com/kognise/libpnet-ipv6-layer3.git?rev=25d6715#25d67151b17dfd361d68da3b3bef722c3872c11c"
 dependencies = [
  "libc",
  "pnet_base",
