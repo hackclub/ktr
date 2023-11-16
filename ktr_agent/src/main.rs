@@ -3,7 +3,6 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver};
 use std::thread;
-use std::time::Duration;
 
 use anyhow::Context;
 use clap::Parser;
@@ -12,15 +11,6 @@ use ktr_lib::peeringdb::PeeringDbManager;
 use ktr_lib::trace::TraceConfig;
 use ktr_lib::traceroute_net::{interface_from_name, TracerouteChannel};
 use serde::{Deserialize, Serialize};
-
-static TRACE_CONFIG: TraceConfig = TraceConfig {
-    max_hops: 64,
-    wait_time_per_hop: Duration::from_millis(150),
-    retry_frequency: Duration::from_secs(1),
-    destination_timeout: Duration::from_millis(500),
-    completion_timeout: Duration::from_secs(3),
-    asn_cache_size: 8192,
-};
 
 struct InputLine(String);
 
@@ -96,12 +86,40 @@ struct Args {
     #[arg(short = 'd', long)]
     peeringdb_path: PathBuf,
     /// Disable IPv6 support (IPv6 addresses will be soft, non-crashing errors)
-    #[arg(long, default_value = "false")]
+    #[arg(long, default_value_t = false)]
     disable_ipv6: bool,
+    /// Max hops
+    #[arg(long, default_value_t = 64)]
+    max_hops: u8,
+    /// Wait time per hop
+    #[arg(long, default_value = "150ms")]
+    wait_time_per_hop: humantime::Duration,
+    /// Retry frequency
+    #[arg(long, default_value = "1s")]
+    retry_frequency: humantime::Duration,
+    /// Destination timeout
+    #[arg(long, default_value = "500ms")]
+    destination_timeout: humantime::Duration,
+    /// Completion timeout
+    #[arg(long, default_value = "3s")]
+    completion_timeout: humantime::Duration,
+    /// ASN cache size
+    #[arg(long, default_value_t = 8192)]
+    asn_cache_size: usize,
 }
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+
+    let trace_config = TraceConfig {
+        max_hops: args.max_hops,
+        wait_time_per_hop: args.wait_time_per_hop.into(),
+        retry_frequency: args.retry_frequency.into(),
+        destination_timeout: args.destination_timeout.into(),
+        completion_timeout: args.completion_timeout.into(),
+        asn_cache_size: args.asn_cache_size,
+    };
+    let trace_config = Box::leak(Box::new(trace_config));
 
     let interface = interface_from_name(&args.interface_name)
         .with_context(|| format!("Interface {} does not exist", args.interface_name))?;
@@ -113,7 +131,7 @@ fn main() -> anyhow::Result<()> {
     let config = ControllerConfig {
         traceroute_channel,
         peeringdb,
-        trace_config: &TRACE_CONFIG,
+        trace_config,
     };
 
     let (tx, rx) = mpsc::channel::<InputLine>();
