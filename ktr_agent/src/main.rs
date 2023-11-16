@@ -88,22 +88,23 @@ struct Args {
     /// Disable IPv6 support (IPv6 addresses will be soft, non-crashing errors)
     #[arg(long, default_value_t = false)]
     disable_ipv6: bool,
-    /// Max hops
+    /// The maximum number of hops
     #[arg(long, default_value_t = 64)]
     max_hops: u8,
-    /// Wait time per hop
+    /// How long to wait for a response from each hop before moving to the next
     #[arg(long, default_value = "150ms")]
     wait_time_per_hop: humantime::Duration,
-    /// Retry frequency
+    /// After all initial pings are sent, how long between retries
     #[arg(long, default_value = "1s")]
     retry_frequency: humantime::Duration,
-    /// Destination timeout
+    /// How long to wait to reach the destination before giving up
     #[arg(long, default_value = "500ms")]
     destination_timeout: humantime::Duration,
-    /// Completion timeout
+    /// After reaching the destination, how long to wait for a response from every
+    /// hop before giving up
     #[arg(long, default_value = "3s")]
     completion_timeout: humantime::Duration,
-    /// ASN cache size
+    /// Size of the cache for IP to ASN WHOIS lookups
     #[arg(long, default_value_t = 8192)]
     asn_cache_size: usize,
 }
