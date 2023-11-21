@@ -1,8 +1,9 @@
 use std::net::IpAddr;
 
-use ktr_lib::peeringdb::PeeringDbManager;
+use ktr_lib::peeringdb::{Network, PeeringDbManager};
 use ktr_lib::trace::{DidUpdate, Hop, TerminationReason, Trace, TraceConfig, TraceError};
 use ktr_lib::traceroute_net::TracerouteChannel;
+use ktr_lib::whois_net::Asn;
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 
@@ -145,6 +146,16 @@ impl<'a> Controller<'a> {
             self.traces.push(Some(Trace::new(ip, self.trace_config)));
             self.next_id = self.traces.len();
             TraceId(self.next_id - 1)
+        }
+    }
+
+    pub fn lookup_asn(&self, asn: Asn) -> Option<Network> {
+        match self.peeringdb.network_by_asn(asn) {
+            Ok(result) => result,
+            Err(error) => {
+                eprintln!("Returning None due to ASN lookup error: {:?}", error);
+                None
+            }
         }
     }
 }

@@ -7,9 +7,10 @@ use std::thread;
 use anyhow::Context;
 use clap::Parser;
 use ktr_agent::controller::{Controller, ControllerConfig, ControllerResult, TraceId};
-use ktr_lib::peeringdb::PeeringDbManager;
+use ktr_lib::peeringdb::{Network, PeeringDbManager};
 use ktr_lib::trace::TraceConfig;
 use ktr_lib::traceroute_net::{interface_from_name, TracerouteChannel};
+use ktr_lib::whois_net::Asn;
 use serde::{Deserialize, Serialize};
 
 struct InputLine(String);
@@ -23,6 +24,8 @@ struct CommandId(usize);
 enum Command {
     #[serde(rename_all = "camelCase")]
     StartTrace { command_id: CommandId, ip: IpAddr },
+    #[serde(rename_all = "camelCase")]
+    LookupAsn { command_id: CommandId, asn: Asn },
 }
 
 #[derive(Debug, Serialize)]
@@ -32,6 +35,11 @@ enum Output<'a> {
     StartedTrace {
         command_id: CommandId,
         trace_id: TraceId,
+    },
+    #[serde(rename_all = "camelCase")]
+    LookupAsnResult {
+        command_id: CommandId,
+        network: Option<Network>,
     },
     /// Pass through to a `ControllerResult`.
     #[serde(untagged)]
@@ -62,6 +70,13 @@ fn controller_thread(config: ControllerConfig, rx: Receiver<InputLine>) -> ! {
                         output(&Output::StartedTrace {
                             command_id,
                             trace_id,
+                        });
+                    }
+                    Command::LookupAsn { command_id, asn } => {
+                        let network = controller.lookup_asn(asn);
+                        output(&Output::LookupAsnResult {
+                            command_id,
+                            network,
                         });
                     }
                 }

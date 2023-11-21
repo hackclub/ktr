@@ -6,7 +6,7 @@ use std::time::Duration;
 const WHOIS_PORT: u16 = 43;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(transparent)]
 pub struct Asn(pub u32);
 
