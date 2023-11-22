@@ -1,3 +1,5 @@
+//! State machine hell.
+
 use std::io;
 use std::net::IpAddr;
 use std::time::{Duration, Instant, SystemTime};
@@ -219,26 +221,30 @@ impl<'a> Trace<'a> {
                 ref mut last_retry,
             } => {
                 let mut sequential_pending = 0;
-                for i in index..=0 {
+                for i in (0..index + 1).rev() {
                     match self.hops_buffer[i as usize] {
                         Hop::Pending { .. } => sequential_pending += 1,
                         _ => break,
                     }
                 }
+                let all_hops_sent = sequential_pending >= self.config.max_sequential_pending
+                    || index >= self.config.max_hops - 1;
 
-                if since.elapsed() > self.config.wait_time_per_hop
-                    && sequential_pending < self.config.max_sequential_pending
-                {
-                    self.perhaps_start_next_hop(index + 1, traceroute_channel)?;
-                    self.poll_inner(traceroute_channel, peeringdb)?
-                } else if since.elapsed() > self.config.destination_timeout {
-                    self.state = TraceState::Terminated(TerminationReason::DestinationTimeout);
-                    DidUpdate::Yes
-                } else if last_retry.elapsed() > self.config.retry_frequency {
-                    *last_retry = Instant::now();
-                    self.retry_ping(traceroute_channel)?;
-                    DidUpdate::No
+                if all_hops_sent {
+                    if since.elapsed() > self.config.destination_timeout {
+                        self.state = TraceState::Terminated(TerminationReason::DestinationTimeout);
+                        DidUpdate::Yes
+                    } else if last_retry.elapsed() > self.config.retry_frequency {
+                        *last_retry = Instant::now();
+                        self.retry_ping(traceroute_channel)?;
+                        DidUpdate::No
+                    } else {
+                        self.poll_inner(traceroute_channel, peeringdb)?
+                    }
                 } else {
+                    if since.elapsed() > self.config.wait_time_per_hop {
+                        self.perhaps_start_next_hop(index + 1, traceroute_channel)?;
+                    }
                     self.poll_inner(traceroute_channel, peeringdb)?
                 }
             }
@@ -318,7 +324,7 @@ impl<'a> Trace<'a> {
         index: u8,
         traceroute_channel: &mut TracerouteChannel,
     ) -> Result<(), TraceError> {
-        if index < self.config.max_hops - 1 {
+        if index < self.config.max_hops {
             let id = PacketId(rand::thread_rng().gen());
             self.state = TraceState::OnHop {
                 since: Instant::now(),
