@@ -74,6 +74,18 @@ pub struct NetworkInfo {
     pub network: Option<Network>,
 }
 
+#[cfg(feature = "serde")]
+fn system_time_serialize<S>(time: &SystemTime, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serialize,
+{
+    serializer.serialize(
+        time.duration_since(SystemTime::UNIX_EPOCH)
+            .map_err(serde::ser::Error::custom)?
+            .as_millis(),
+    )
+}
+
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(tag = "kind"))]
@@ -84,6 +96,10 @@ pub enum Hop {
     #[non_exhaustive]
     Pending {
         id: PacketId,
+        #[cfg_attr(
+            feature = "serde",
+            serde(rename = "since", serialize_with = "system_time_serialize")
+        )]
         since: SystemTime,
     },
 
