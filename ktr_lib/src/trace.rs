@@ -96,10 +96,7 @@ pub enum Hop {
     #[non_exhaustive]
     Pending {
         id: PacketId,
-        #[cfg_attr(
-            feature = "serde",
-            serde(rename = "since", serialize_with = "system_time_serialize")
-        )]
+        #[cfg_attr(feature = "serde", serde(serialize_with = "system_time_serialize"))]
         since: SystemTime,
     },
 
