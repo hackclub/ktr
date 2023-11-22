@@ -23,7 +23,8 @@ fn main() {
     let peeringdb = PeeringDbManager::connect(peeringdb_path).unwrap();
 
     let config = TraceConfig {
-        max_hops: 20,
+        max_hops: 32,
+        max_sequential_pending: 10,
         wait_time_per_hop: Duration::from_millis(200),
         retry_frequency: Duration::from_secs(1),
         destination_timeout: Duration::from_secs(3),

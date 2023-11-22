@@ -106,6 +106,9 @@ struct Args {
     /// The maximum number of hops
     #[arg(long, default_value_t = 64)]
     max_hops: u8,
+    /// The maximum number of pending hops in a row before waiting for one to complete
+    #[arg(long, default_value_t = 10)]
+    max_sequential_pending: u8,
     /// How long to wait for a response from each hop before moving to the next
     #[arg(long, default_value = "150ms")]
     wait_time_per_hop: humantime::Duration,
@@ -129,6 +132,7 @@ fn main() -> anyhow::Result<()> {
 
     let trace_config = TraceConfig {
         max_hops: args.max_hops,
+        max_sequential_pending: args.max_sequential_pending,
         wait_time_per_hop: args.wait_time_per_hop.into(),
         retry_frequency: args.retry_frequency.into(),
         destination_timeout: args.destination_timeout.into(),
