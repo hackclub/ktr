@@ -77,9 +77,9 @@ pub struct NetworkInfo {
 #[cfg(feature = "serde")]
 fn system_time_serialize<S>(time: &SystemTime, serializer: S) -> Result<S::Ok, S::Error>
 where
-    S: serde::Serialize,
+    S: serde::Serializer,
 {
-    serializer.serialize(
+    serializer.serialize_u128(
         time.duration_since(SystemTime::UNIX_EPOCH)
             .map_err(serde::ser::Error::custom)?
             .as_millis(),
