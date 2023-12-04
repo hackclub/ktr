@@ -28,22 +28,36 @@ pub enum AsnResult {
 /// ASN finder that tries multiple WHOIS servers.
 #[derive(Debug)]
 pub struct AsnFinder {
-    iana: NormalAsnServer,
-    radb: NormalAsnServer,
-    cymru: CymruAsnServer,
+    iana: Option<NormalAsnServer>,
+    radb: Option<NormalAsnServer>,
+    cymru: Option<CymruAsnServer>,
 }
 
 impl AsnFinder {
     pub fn lookup(ip: IpAddr) -> Result<AsnFinder, io::Error> {
         Ok(Self {
-            iana: NormalAsnServer::connect(ip, "whois.iana.org")?,
-            radb: NormalAsnServer::connect(ip, "whois.radb.net")?,
-            cymru: CymruAsnServer::connect(ip)?,
+            iana: NormalAsnServer::connect(ip, "whois.iana.org").ok(),
+            radb: NormalAsnServer::connect(ip, "whois.radb.net").ok(),
+            cymru: CymruAsnServer::connect(ip).ok(),
         })
     }
 
     pub fn poll(&mut self) -> Result<AsnResult, io::Error> {
-        let results = [self.iana.poll()?, self.radb.poll()?, self.cymru.poll()?];
+        let results = [
+            self.iana
+                .as_mut()
+                .and_then(|s| s.poll().ok())
+                .unwrap_or(AsnResult::NotFound),
+            self.radb
+                .as_mut()
+                .and_then(|s| s.poll().ok())
+                .unwrap_or(AsnResult::NotFound),
+            self.cymru
+                .as_mut()
+                .and_then(|s| s.poll().ok())
+                .unwrap_or(AsnResult::NotFound),
+        ];
+
         for result in results {
             if let AsnResult::Found(asn) = result {
                 return Ok(AsnResult::Found(asn));
