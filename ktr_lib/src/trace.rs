@@ -360,7 +360,10 @@ impl<'a> Trace<'a> {
         traceroute_channel: &mut TracerouteChannel,
         peeringdb: &PeeringDbManager,
     ) -> Result<DidUpdate, TraceError> {
-        let mut did_update: DidUpdate = match traceroute_channel.poll()? {
+        let result = traceroute_channel.poll()?;
+        let mut should_recover_result = false;
+
+        let mut did_update: DidUpdate = match result {
             Some(TracerouteResult::IcmpReply(ip, id))
             | Some(TracerouteResult::IcmpTimeExceeded(ip, id)) => {
                 if let Some(hop_index) = self.hops_mut().iter_mut().position(|hop| match hop {
@@ -408,6 +411,7 @@ impl<'a> Trace<'a> {
                         DidUpdate::No
                     }
                 } else {
+                    should_recover_result = true;
                     DidUpdate::No
                 }
             }
@@ -416,6 +420,7 @@ impl<'a> Trace<'a> {
                     self.state = TraceState::Terminated(TerminationReason::DestinationUnreachable);
                     DidUpdate::Yes
                 } else {
+                    should_recover_result = true;
                     DidUpdate::No
                 }
             }
@@ -449,6 +454,12 @@ impl<'a> Trace<'a> {
             } else {
                 DidUpdate::No
             });
+        }
+
+        if should_recover_result {
+            if let Some(result) = result {
+                traceroute_channel.recover_result(result);
+            }
         }
 
         Ok(did_update)
