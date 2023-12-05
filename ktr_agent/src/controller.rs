@@ -126,6 +126,7 @@ impl<'a> Controller<'a> {
             trace_config: config.trace_config,
             traces: vec![],
             duration_ringbuf: VecDeque::with_capacity(10000),
+            last_lps_print: Instant::now(),
             next_id: 0,
             iter_cursor: 0,
         }
