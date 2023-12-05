@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::io::{self, ErrorKind};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::time::Duration;
@@ -47,7 +46,6 @@ pub struct TracerouteChannel {
     v6_tx: Option<TransportSender>,
     /// Sequence number that increments per request. Not used for matching.
     sequence_number: u16,
-    result_queue: VecDeque<TracerouteResult>,
 }
 
 impl TracerouteChannel {
@@ -92,7 +90,6 @@ impl TracerouteChannel {
             v4_tx,
             v6_tx,
             sequence_number: 0,
-            result_queue: VecDeque::new(),
         })
     }
 
@@ -189,10 +186,6 @@ impl TracerouteChannel {
     }
 
     pub fn poll(&mut self) -> Result<Option<TracerouteResult>, TracerouteError> {
-        if !self.result_queue.is_empty() {
-            return Ok(self.result_queue.pop_front());
-        }
-
         match self.rx.next() {
             Ok(packet) => Ok((|| {
                 let packet = EthernetPacket::new(packet)?;
@@ -276,10 +269,6 @@ impl TracerouteChannel {
             Err(error) if error.kind() == ErrorKind::TimedOut => Ok(None),
             Err(error) => Err(TracerouteError::RxChannelIo(error)),
         }
-    }
-
-    pub fn recover_result(&mut self, result: TracerouteResult) {
-        self.result_queue.push_back(result);
     }
 }
 

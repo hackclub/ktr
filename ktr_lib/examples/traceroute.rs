@@ -34,8 +34,9 @@ fn main() {
     let mut trace = Trace::new(ip, &config);
 
     loop {
-        let (did_update, termination_reason) =
-            trace.poll(&mut traceroute_channel, &peeringdb).unwrap();
+        let (did_update, termination_reason) = trace
+            .non_packet_poll(&mut traceroute_channel, &peeringdb)
+            .unwrap();
 
         if did_update == DidUpdate::Yes {
             print!("{esc}[2J{esc}[1;1H", esc = 27 as char);

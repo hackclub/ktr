@@ -69,6 +69,36 @@ pub struct Controller<'a> {
     iter_cursor: usize,
 }
 
+macro_rules! handle_poll_result {
+    ($self: ident, $trace_id: expr, $poll_result: expr) => {
+        match $poll_result {
+            Ok((DidUpdate::No, _)) => {}
+            Ok((DidUpdate::Yes, None)) => {
+                return Some(ControllerResult::TraceUpdate {
+                    id: TraceId($trace_id),
+                    hops: $self.traces[$trace_id].as_ref().unwrap().hops(),
+                });
+            }
+            Ok((DidUpdate::Yes, Some(termination_reason))) => {
+                $self.next_id = $self.iter_cursor.min($self.next_id);
+                return Some(ControllerResult::TraceDone {
+                    id: TraceId($trace_id),
+                    hops: $self.traces[$trace_id].take().unwrap().to_hops(),
+                    reason: SafeTerminationReason::Termination(termination_reason),
+                });
+            }
+            Err(error) => {
+                $self.next_id = $trace_id.min($self.next_id);
+                return Some(ControllerResult::TraceDone {
+                    id: TraceId($trace_id),
+                    hops: $self.traces[$trace_id].take().unwrap().to_hops(),
+                    reason: SafeTerminationReason::Error(error),
+                });
+            }
+        }
+    };
+}
+
 impl<'a> Controller<'a> {
     pub fn new(config: ControllerConfig<'a>) -> Self {
         Self {
@@ -89,34 +119,31 @@ impl<'a> Controller<'a> {
             return None;
         }
 
+        match self.traceroute_channel.poll() {
+            Ok(Some(result)) => {
+                for (i, trace) in self.traces.iter_mut().enumerate() {
+                    if let Some(trace) = trace {
+                        let poll_result = trace.perhaps_use_packet(
+                            &result,
+                            &mut self.traceroute_channel,
+                            &self.peeringdb,
+                        );
+                        handle_poll_result!(self, i, poll_result);
+                    }
+                }
+            }
+            Err(error) => {
+                eprintln!("Error polling traceroute channel: {:?}", error);
+            }
+            Ok(None) => {}
+        };
+
         let start_cursor = self.iter_cursor;
         loop {
             if let Some(trace) = &mut self.traces[self.iter_cursor] {
-                match trace.poll(&mut self.traceroute_channel, &self.peeringdb) {
-                    Ok((DidUpdate::No, _)) => {}
-                    Ok((DidUpdate::Yes, None)) => {
-                        break Some(ControllerResult::TraceUpdate {
-                            id: TraceId(self.iter_cursor),
-                            hops: self.traces[self.iter_cursor].as_ref().unwrap().hops(),
-                        });
-                    }
-                    Ok((DidUpdate::Yes, Some(termination_reason))) => {
-                        self.next_id = self.iter_cursor.min(self.next_id);
-                        break Some(ControllerResult::TraceDone {
-                            id: TraceId(self.iter_cursor),
-                            hops: self.traces[self.iter_cursor].take().unwrap().to_hops(),
-                            reason: SafeTerminationReason::Termination(termination_reason),
-                        });
-                    }
-                    Err(error) => {
-                        self.next_id = self.iter_cursor.min(self.next_id);
-                        break Some(ControllerResult::TraceDone {
-                            id: TraceId(self.iter_cursor),
-                            hops: self.traces[self.iter_cursor].take().unwrap().to_hops(),
-                            reason: SafeTerminationReason::Error(error),
-                        });
-                    }
-                }
+                let poll_result =
+                    trace.non_packet_poll(&mut self.traceroute_channel, &self.peeringdb);
+                handle_poll_result!(self, self.iter_cursor, poll_result);
             }
 
             self.iter_cursor = (self.iter_cursor + 1) % self.traces.len();

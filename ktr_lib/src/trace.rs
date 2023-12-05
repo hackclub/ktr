@@ -218,7 +218,7 @@ impl<'a> Trace<'a> {
         }
     }
 
-    pub fn poll(
+    pub fn non_packet_poll(
         &mut self,
         traceroute_channel: &mut TracerouteChannel,
         peeringdb: &PeeringDbManager,
@@ -226,7 +226,7 @@ impl<'a> Trace<'a> {
         let did_update: DidUpdate = match self.state {
             TraceState::NotStarted => {
                 self.perhaps_start_next_hop(0, traceroute_channel)?;
-                self.poll_inner(traceroute_channel, peeringdb)?
+                self.poll_asn_finder(peeringdb)?
             }
             TraceState::OnHop {
                 since,
@@ -252,13 +252,13 @@ impl<'a> Trace<'a> {
                         self.retry_ping(traceroute_channel)?;
                         DidUpdate::No
                     } else {
-                        self.poll_inner(traceroute_channel, peeringdb)?
+                        self.poll_asn_finder(peeringdb)?
                     }
                 } else {
                     if since.elapsed() > self.config.wait_time_per_hop {
                         self.perhaps_start_next_hop(index + 1, traceroute_channel)?;
                     }
-                    self.poll_inner(traceroute_channel, peeringdb)?
+                    self.poll_asn_finder(peeringdb)?
                 }
             }
             TraceState::ReachedDestination { since, last_retry } => {
@@ -280,11 +280,83 @@ impl<'a> Trace<'a> {
                     self.state = TraceState::Terminated(TerminationReason::Done);
                     DidUpdate::Yes
                 } else {
-                    self.poll_inner(traceroute_channel, peeringdb)?;
+                    self.poll_asn_finder(peeringdb)?;
                     DidUpdate::No
                 }
             }
             TraceState::Terminated(_) => DidUpdate::Yes,
+        };
+
+        match self.state {
+            TraceState::Terminated(reason) => Ok((did_update, Some(reason))),
+            _ => Ok((did_update, None)),
+        }
+    }
+
+    pub fn perhaps_use_packet(
+        &mut self,
+        result: &TracerouteResult,
+        traceroute_channel: &mut TracerouteChannel,
+        peeringdb: &PeeringDbManager,
+    ) -> Result<(DidUpdate, Option<TerminationReason>), TraceError> {
+        let did_update: DidUpdate = match result {
+            &TracerouteResult::IcmpReply(ip, id) | &TracerouteResult::IcmpTimeExceeded(ip, id) => {
+                if let Some(hop_index) = self.hops_mut().iter_mut().position(|hop| match hop {
+                    Hop::Pending { id: hop_id, .. } => hop_id == &id,
+                    _ => false,
+                }) {
+                    let is_destination = ip == self.dst_ip;
+                    self.hops_buffer[hop_index] = if is_public(ip) {
+                        if let Some(&maybe_asn) = self.asn_cache.get(&ip) {
+                            Hop::Done {
+                                ip,
+                                hostname: do_rdns(&ip)?,
+                                network_info: maybe_asn
+                                    .map(|asn| get_network_info(asn, peeringdb))
+                                    .transpose()?,
+                            }
+                        } else {
+                            Hop::FindingAsn {
+                                ip,
+                                finder: AsnFinder::lookup(ip).map_err(TraceError::AsnLookup)?,
+                            }
+                        }
+                    } else {
+                        Hop::Done {
+                            ip,
+                            hostname: do_rdns(&ip)?,
+                            network_info: None,
+                        }
+                    };
+
+                    if is_destination {
+                        self.state = TraceState::ReachedDestination {
+                            since: Instant::now(),
+                            last_retry: Instant::now(),
+                        };
+                        DidUpdate::Yes
+                    } else if let TraceState::OnHop { index, .. } = self.state {
+                        if index == hop_index as u8 {
+                            // If this was a response to our current hop, we can move on to the next.
+                            self.perhaps_start_next_hop(index + 1, traceroute_channel)?;
+                        }
+                        DidUpdate::Yes
+                    } else {
+                        DidUpdate::No
+                    }
+                } else {
+                    DidUpdate::No
+                }
+            }
+
+            &TracerouteResult::IcmpDestinationUnreachable(ip) => {
+                if ip == self.dst_ip {
+                    self.state = TraceState::Terminated(TerminationReason::DestinationUnreachable);
+                    DidUpdate::Yes
+                } else {
+                    DidUpdate::No
+                }
+            }
         };
 
         match self.state {
@@ -355,77 +427,8 @@ impl<'a> Trace<'a> {
         Ok(())
     }
 
-    fn poll_inner(
-        &mut self,
-        traceroute_channel: &mut TracerouteChannel,
-        peeringdb: &PeeringDbManager,
-    ) -> Result<DidUpdate, TraceError> {
-        let result = traceroute_channel.poll()?;
-        let mut should_recover_result = false;
-
-        let mut did_update: DidUpdate = match result {
-            Some(TracerouteResult::IcmpReply(ip, id))
-            | Some(TracerouteResult::IcmpTimeExceeded(ip, id)) => {
-                if let Some(hop_index) = self.hops_mut().iter_mut().position(|hop| match hop {
-                    Hop::Pending { id: hop_id, .. } => hop_id == &id,
-                    _ => false,
-                }) {
-                    let is_destination = ip == self.dst_ip;
-                    self.hops_buffer[hop_index] = if is_public(ip) {
-                        if let Some(&maybe_asn) = self.asn_cache.get(&ip) {
-                            Hop::Done {
-                                ip,
-                                hostname: do_rdns(&ip)?,
-                                network_info: maybe_asn
-                                    .map(|asn| get_network_info(asn, peeringdb))
-                                    .transpose()?,
-                            }
-                        } else {
-                            Hop::FindingAsn {
-                                ip,
-                                finder: AsnFinder::lookup(ip).map_err(TraceError::AsnLookup)?,
-                            }
-                        }
-                    } else {
-                        Hop::Done {
-                            ip,
-                            hostname: do_rdns(&ip)?,
-                            network_info: None,
-                        }
-                    };
-
-                    if is_destination {
-                        self.state = TraceState::ReachedDestination {
-                            since: Instant::now(),
-                            last_retry: Instant::now(),
-                        };
-                        DidUpdate::Yes
-                    } else if let TraceState::OnHop { index, .. } = self.state {
-                        if index == hop_index as u8 {
-                            // If this was a response to our current hop, we can move on to the next.
-                            self.perhaps_start_next_hop(index + 1, traceroute_channel)?;
-                            self.poll_inner(traceroute_channel, peeringdb)?;
-                        }
-                        DidUpdate::Yes
-                    } else {
-                        DidUpdate::No
-                    }
-                } else {
-                    should_recover_result = true;
-                    DidUpdate::No
-                }
-            }
-            Some(TracerouteResult::IcmpDestinationUnreachable(ip)) => {
-                if ip == self.dst_ip {
-                    self.state = TraceState::Terminated(TerminationReason::DestinationUnreachable);
-                    DidUpdate::Yes
-                } else {
-                    should_recover_result = true;
-                    DidUpdate::No
-                }
-            }
-            None => DidUpdate::No,
-        };
+    fn poll_asn_finder(&mut self, peeringdb: &PeeringDbManager) -> Result<DidUpdate, TraceError> {
+        let mut did_update = DidUpdate::No;
 
         // Can't use .hops_mut() here because the borrow checker doesn't know that we're only using part of the struct.
         for hop in &mut self.hops_buffer[..self.used_hops as usize] {
@@ -454,12 +457,6 @@ impl<'a> Trace<'a> {
             } else {
                 DidUpdate::No
             });
-        }
-
-        if should_recover_result {
-            if let Some(result) = result {
-                traceroute_channel.recover_result(result);
-            }
         }
 
         Ok(did_update)

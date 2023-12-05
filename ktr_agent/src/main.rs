@@ -61,6 +61,7 @@ fn controller_thread(config: ControllerConfig, rx: Receiver<InputLine>) -> ! {
                     Ok(command) => command,
                     Err(error) => {
                         eprintln!("Failed to parse command: {}", error);
+                        eprintln!("  > {}", line.0);
                         continue;
                     }
                 };
