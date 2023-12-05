@@ -2,7 +2,8 @@ use std::io::{prelude::*, stdin, BufReader};
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver};
-use std::thread;
+use std::thread::{self, sleep};
+use std::time::Duration;
 
 use anyhow::Context;
 use clap::Parser;

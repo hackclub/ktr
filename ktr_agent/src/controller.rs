@@ -1,4 +1,6 @@
+use std::collections::VecDeque;
 use std::net::IpAddr;
+use std::time::{Duration, Instant};
 
 use ktr_lib::peeringdb::{Network, PeeringDbManager};
 use ktr_lib::trace::{DidUpdate, Hop, TerminationReason, Trace, TraceConfig, TraceError};
@@ -66,11 +68,28 @@ pub struct Controller<'a> {
     trace_config: &'a TraceConfig,
     traces: Vec<Option<Trace<'a>>>,
     next_id: usize,
+    duration_ringbuf: VecDeque<Duration>,
+    last_lps_print: Instant,
     iter_cursor: usize,
 }
 
 macro_rules! handle_poll_result {
-    ($self: ident, $trace_id: expr, $poll_result: expr) => {
+    ($self: ident, $start: ident, $trace_id: expr, $poll_result: expr) => {
+        let duration = Instant::now().duration_since($start);
+        $self.duration_ringbuf.push_back(duration);
+        if $self.duration_ringbuf.len() > 10000 {
+            $self.duration_ringbuf.pop_front();
+        };
+
+        let average = $self.duration_ringbuf.iter().sum::<Duration>().as_nanos() as f32
+            / $self.duration_ringbuf.len() as f32;
+        let per_second = Duration::from_secs(1).as_nanos() as f32 / average;
+
+        if Instant::now().duration_since($self.last_lps_print) > Duration::from_secs(10) {
+            $self.last_lps_print = Instant::now();
+            eprintln!("loops per second: {}", per_second);
+        }
+
         match $poll_result {
             Ok((DidUpdate::No, _)) => {}
             Ok((DidUpdate::Yes, None)) => {
@@ -106,6 +125,7 @@ impl<'a> Controller<'a> {
             peeringdb: config.peeringdb,
             trace_config: config.trace_config,
             traces: vec![],
+            duration_ringbuf: VecDeque::with_capacity(10000),
             next_id: 0,
             iter_cursor: 0,
         }
@@ -119,6 +139,7 @@ impl<'a> Controller<'a> {
             return None;
         }
 
+        let start = Instant::now();
         match self.traceroute_channel.poll() {
             Ok(Some(result)) => {
                 for (i, trace) in self.traces.iter_mut().enumerate() {
@@ -128,7 +149,7 @@ impl<'a> Controller<'a> {
                             &mut self.traceroute_channel,
                             &self.peeringdb,
                         );
-                        handle_poll_result!(self, i, poll_result);
+                        handle_poll_result!(self, start, i, poll_result);
                     }
                 }
             }
@@ -143,7 +164,7 @@ impl<'a> Controller<'a> {
             if let Some(trace) = &mut self.traces[self.iter_cursor] {
                 let poll_result =
                     trace.non_packet_poll(&mut self.traceroute_channel, &self.peeringdb);
-                handle_poll_result!(self, self.iter_cursor, poll_result);
+                handle_poll_result!(self, start, self.iter_cursor, poll_result);
             }
 
             self.iter_cursor = (self.iter_cursor + 1) % self.traces.len();
