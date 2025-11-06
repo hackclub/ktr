@@ -2,16 +2,15 @@ use std::io::{prelude::*, stdin, BufReader};
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver};
-use std::thread::{self, sleep};
-use std::time::Duration;
+use std::thread::{self};
 
 use anyhow::Context;
 use clap::Parser;
 use ktr_agent::controller::{Controller, ControllerConfig, ControllerResult, TraceId};
-use ktr_lib::peeringdb::{Network, PeeringDbManager};
+use ktr_lib::metadata::{Asn, Network};
+use ktr_lib::peeringdb::PeeringDbManager;
 use ktr_lib::trace::TraceConfig;
 use ktr_lib::traceroute_net::{interface_from_name, TracerouteChannel};
-use ktr_lib::whois_net::Asn;
 use serde::{Deserialize, Serialize};
 
 struct InputLine(String);

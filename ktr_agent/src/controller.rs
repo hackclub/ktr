@@ -2,10 +2,10 @@ use std::collections::VecDeque;
 use std::net::IpAddr;
 use std::time::{Duration, Instant};
 
-use ktr_lib::peeringdb::{Network, PeeringDbManager};
+use ktr_lib::metadata::{Asn, Network};
+use ktr_lib::peeringdb::PeeringDbManager;
 use ktr_lib::trace::{DidUpdate, Hop, TerminationReason, Trace, TraceConfig, TraceError};
 use ktr_lib::traceroute_net::TracerouteChannel;
-use ktr_lib::whois_net::Asn;
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 

@@ -8,9 +8,10 @@ use quick_cache::unsync::Cache;
 use rand::Rng;
 use thiserror::Error;
 
-use crate::peeringdb::{Network, PeeringDbError, PeeringDbManager};
+use crate::metadata::{Asn, Network};
+use crate::peeringdb::{PeeringDbError, PeeringDbManager};
 use crate::traceroute_net::{PacketId, TracerouteChannel, TracerouteError, TracerouteResult};
-use crate::whois_net::{Asn, AsnFinder, AsnResult};
+use crate::whois_net::{AsnFinder, AsnResult};
 
 #[derive(Error, Debug)]
 pub enum TraceError {
