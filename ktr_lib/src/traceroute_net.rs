@@ -56,7 +56,7 @@ impl TracerouteChannel {
         let (_, rx) = match channel(
             &interface,
             Config {
-                read_timeout: Some(Duration::from_millis(5)),
+                read_timeout: Some(Duration::from_millis(50)),
                 ..Default::default()
             },
         ) {

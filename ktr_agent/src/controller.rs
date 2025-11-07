@@ -141,24 +141,29 @@ impl<'a> Controller<'a> {
         }
 
         let start = Instant::now();
-        match self.traceroute_channel.poll() {
-            Ok(Some(result)) => {
-                for (i, trace) in self.traces.iter_mut().enumerate() {
-                    if let Some(trace) = trace {
-                        let poll_result = trace.perhaps_use_packet(
-                            &result,
-                            &mut self.traceroute_channel,
-                            &self.peeringdb,
-                        );
-                        handle_poll_result!(self, start, i, poll_result);
+        loop {
+            match self.traceroute_channel.poll() {
+                Ok(Some(result)) => {
+                    for (i, trace) in self.traces.iter_mut().enumerate() {
+                        if let Some(trace) = trace {
+                            let poll_result = trace.perhaps_use_packet(
+                                &result,
+                                &mut self.traceroute_channel,
+                                &self.peeringdb,
+                            );
+                            handle_poll_result!(self, start, i, poll_result);
+                        }
                     }
                 }
-            }
-            Err(error) => {
-                eprintln!("Error polling traceroute channel: {:?}", error);
-            }
-            Ok(None) => {}
-        };
+                Err(error) => {
+                    eprintln!("Error polling traceroute channel: {:?}", error);
+                    break;
+                }
+                Ok(None) => {
+                    break;
+                }
+            };
+        }
 
         let start_cursor = self.iter_cursor;
         loop {
