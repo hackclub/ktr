@@ -1,6 +1,6 @@
 use std::io::{self, ErrorKind};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use thiserror::Error;
 
@@ -56,7 +56,7 @@ impl TracerouteChannel {
         let (_, rx) = match channel(
             &interface,
             Config {
-                read_timeout: Some(Duration::from_millis(50)),
+                read_timeout: Some(Duration::from_millis(5)),
                 ..Default::default()
             },
         ) {
@@ -186,6 +186,7 @@ impl TracerouteChannel {
     }
 
     pub fn poll(&mut self) -> Result<Option<TracerouteResult>, TracerouteError> {
+        let start = Instant::now();
         match self.rx.next() {
             Ok(packet) => Ok((|| {
                 let packet = EthernetPacket::new(packet)?;
@@ -266,7 +267,10 @@ impl TracerouteChannel {
                     _ => None,
                 }
             })()),
-            Err(error) if error.kind() == ErrorKind::TimedOut => Ok(None),
+            Err(error) if error.kind() == ErrorKind::TimedOut => {
+                eprintln!("(timed out after {:?}: expected behavior)", start.elapsed());
+                Ok(None)
+            }
             Err(error) => Err(TracerouteError::RxChannelIo(error)),
         }
     }
