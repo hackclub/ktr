@@ -183,18 +183,17 @@ fn get_network_info(asn: Asn, peeringdb: &PeeringDbManager) -> Result<NetworkInf
 }
 
 fn do_rdns(ip: &IpAddr) -> Result<Option<String>, TraceError> {
-    Ok(None)
-    // match dns_lookup::lookup_addr(ip) {
-    //     Ok(hostname) => Ok(Some(hostname)),
-    //     Err(error) => {
-    //         if error.kind() == io::ErrorKind::Other {
-    //             // Our "not found" errors tend to be Other, which is unfortunate, but false Nones are alright.
-    //             Ok(None)
-    //         } else {
-    //             Err(TraceError::Rdns(error))
-    //         }
-    //     }
-    // }
+    match dns_lookup::lookup_addr(ip) {
+        Ok(hostname) => Ok(Some(hostname)),
+        Err(error) => {
+            if error.kind() == io::ErrorKind::Other {
+                // Our "not found" errors tend to be Other, which is unfortunate, but false Nones are alright.
+                Ok(None)
+            } else {
+                Err(TraceError::Rdns(error))
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
