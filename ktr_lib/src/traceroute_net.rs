@@ -267,10 +267,7 @@ impl TracerouteChannel {
                     _ => None,
                 }
             })()),
-            Err(error) if error.kind() == ErrorKind::TimedOut => {
-                eprintln!("(timed out after {:?}: expected behavior)", start.elapsed());
-                Ok(None)
-            }
+            Err(error) if error.kind() == ErrorKind::TimedOut => Ok(None),
             Err(error) => Err(TracerouteError::RxChannelIo(error)),
         }
     }

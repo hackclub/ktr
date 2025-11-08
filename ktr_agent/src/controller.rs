@@ -81,13 +81,13 @@ macro_rules! handle_poll_result {
             $self.duration_ringbuf.pop_front();
         };
 
-        let average = $self.duration_ringbuf.iter().sum::<Duration>().as_nanos() as f32
-            / $self.duration_ringbuf.len() as f32;
-        let per_second = Duration::from_secs(1).as_nanos() as f32 / average;
+        // let average = $self.duration_ringbuf.iter().sum::<Duration>().as_nanos() as f32
+        // / $self.duration_ringbuf.len() as f32;
+        // let per_second = Duration::from_secs(1).as_nanos() as f32 / average;
 
         if Instant::now().duration_since($self.last_lps_print) > Duration::from_secs(10) {
             $self.last_lps_print = Instant::now();
-            eprintln!("loops per second: {}", per_second);
+            // eprintln!("loops per second: {}", per_second);
         }
 
         match $poll_result {
